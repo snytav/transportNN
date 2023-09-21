@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from convection_basic import linear_convection_solve
+
 
 def f(x):
     return 0.
@@ -22,11 +24,18 @@ class PDEnet(nn.Module):
         y = self.fc2(y.reshape(1, self.N))
         return y
 
+    def initial_condition(self):
+        u = np.ones(self.nx)  # numpy function ones()
+        dx = self.dx
+        u[int(.5 / dx):int(1 / dx + 1)] = 2  # setting u = 2 between 0.5 and 1 as per our I.C.s
+        return u
+    
     def boundary(self,xx):
         x = xx[0] / Lx
         t = xx[1] / Lt
         # HERE: arrange solution from L.Barba as a method and make B.C. from this method
-
+        # first u make from Barba's initial condition, all the params into class variables.
+        u, u2D = linear_convection_solve(u, self.c, self.dx, self.dt, self.Lx, self.nx, self.Lt, self.nt)
 
     def trial(self, x):
         y = self.boundary(x)+self.forward(x)
