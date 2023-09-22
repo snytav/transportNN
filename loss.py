@@ -17,19 +17,19 @@ def loss_function(x_space, t_space, pde, psy_trial, f,c):
             # net_out_w = grad(outputs=net_out, inputs=pde.fc1.weight, grad_outputs=torch.ones_like(net_out),
             #                  retain_graph=True, create_graph=True)
 
-            net_out_jacobian = jacobian(pde.forward, input_point, create_graph=True)
+            net_out_jacobian = jacobian(pde.trial, input_point, create_graph=True)
             # jac1  = get_jacobian(pde.forward,input_point,2)
             # net_out_hessian = hessian(pde.forward, input_point, create_graph=True)
-            psy_t = psy_trial(input_point, net_out)
+            psy_t = pde.trial(input_point)
 
-            inputs = (input_point, net_out)
-            psy_t_jacobian = jacobian(psy_trial, inputs, create_graph=True)[0]
+            inputs = input_point
+            psy_t_jacobian = jacobian(pde.trial, inputs, create_graph=True)[0]
             # psy_t_hessian = hessian(psy_trial, inputs, create_graph=True)
             # psy_t_hessian = psy_t_hessian[0][0]
             # acobian(jacobian(psy_trial))(input_point, net_out
 
-            trial_dx = psy_t_jacobian[0][0][0]
-            trial_dt = psy_t_jacobian[0][0][1]
+            trial_dx = psy_t_jacobian[0][0]
+            trial_dt = psy_t_jacobian[0][1]
 
             func = f(input_point)
             func_t = torch.Tensor([func])

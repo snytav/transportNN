@@ -35,7 +35,7 @@ def linear_convection_solve(u,c,dx,dt,Lx, nx, Lt, nt):
 
     pyplot.plot(numpy.linspace(0, 2, nx), u);
     pyplot.show()
-    draw_surf(Lx, nx, Lt, nt, u2D)
+    draw_surf(Lx, Lt, u2D,'T','X')
     return u,u2D
 
 
