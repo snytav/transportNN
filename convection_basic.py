@@ -10,7 +10,7 @@ import time, sys                   #and load some utilities
 from surface import draw_surf
 
 
-#nx = 41  # try changing this number from 41 to 81 and Run All ... what happens?
+# nx = 41  # try changing this number from 41 to 81 and Run All ... what happens?
 #dx = 2 / (nx-1)
 nt = 25    #nt is the number of timesteps we want to calculate
 dt = .025  #dt is the amount of time each timestep covers (delta t)
@@ -33,9 +33,9 @@ def linear_convection_solve(u,c,dx,dt,Lx, nx, Lt, nt):
         u2D[n,:] = u
         qq = 0
 
-    pyplot.plot(numpy.linspace(0, 2, nx), u);
-    pyplot.show()
-    draw_surf(Lx, Lt, u2D,'T','X')
+  #  pyplot.plot(numpy.linspace(0, 2, nx), u);
+  #  pyplot.show()
+    # draw_surf(Lx, Lt, u2D,'T','X')
     return u,u2D
 
 

@@ -23,6 +23,9 @@ class PDEnet(nn.Module):
         self.c  = c
         self.dt = dt
         self.dx = self.Lx / (self.N - 1)
+        u = self.initial_condition()
+        u, self.u2D = linear_convection_solve(u, self.c, self.dx, self.dt,
+                                         self.Lx, self.N, self.Lt, self.nt)
 
     def forward(self,x):
         x = x.reshape(1, 2)
@@ -31,15 +34,31 @@ class PDEnet(nn.Module):
         y = self.fc2(y.reshape(1, self.N))
         return y
 
+    def exact(self,xx):
+        x = xx[0]
+        t = xx[1]
+        i = int(xx[0] / self.dx)
+        k = int(xx[1] / self.dt)
+
+        return self.u2D[k][i]
+
     def boundary(self,xx):
-        x = xx[0] / self.Lx
-        t = xx[1] / self.Lt
-        return (t * torch.sin(np.pi * x))
+        x = xx[0]
+        t = xx[1]
+
+        u = self.initial_condition()
+        u, u2D = linear_convection_solve(u, self.c, self.dx, self.dt,
+                                         self.Lx, self.N, self.Lt, self.nt)
+
+        ic = self.initial_condition()
+        i = int(x/self.dx)
+        res = (t< self.dt)*ic[i]
+        return res
 
     def trial(self,xx):
         x = xx[0] / self.Lx
         t = xx[1] / self.Lt
-        f = A(xx) + x * (1 - x) * t * (1 - t) * self.forward(xx)
+        f = self.boundary(xx) + x * (1 - x) * t * (1 - t) * self.forward(xx)
         return f
 
     def initial_condition(self):
@@ -47,6 +66,14 @@ class PDEnet(nn.Module):
         dx = self.dx
         u[int(.5 / dx):int(1 / dx + 1)] = 2  # setting u = 2 between 0.5 and 1 as per our I.C.s
         return u
+
+    def getSolution(self):
+        x_space = torch.linspace(0, self.Lx, self.N - 1)
+        t_space = np.arange(0, self.nt * self.dt, self.dt)
+        u_nn = torch.zeros((self.nt, self.N))
+        for i, x in enumerate(x_space):
+            for j, t in enumerate(t_space):
+                u_nn[j][i] = pde.trial(torch.Tensor([x, t]))
     #
     # def boundary(self,xx):
     #     x = xx[0] / Lx
@@ -54,7 +81,7 @@ class PDEnet(nn.Module):
     #     u = torch.zeros(self.nt,self.N)
     #     u[0,:] = self.initial_condition()
 
-        return u
+        return u_nn
 
         # HERE: arrange solution from L.Barba as a method and make B.C. from this method
         # first u make from Barba's initial condition, all the params into class variables.
@@ -68,30 +95,32 @@ class PDEnet(nn.Module):
 
 
 
-Lx = 2.0
-nx = 41  # try changing this number from 41 to 81 and Run All ... what happens?
-dx = Lx / (nx - 1)
-nt = 25  # nt is the number of timesteps we want to calculate
-dt = .025  # dt is the amount of time each timestep covers (delta t)
-Lt = nt*dt
+# Lx = 2.0
+# nx = 5  # try changing this number from 41 to 81 and Run All ... what happens?
+# dx = Lx / (nx - 1)
+# nt = 5  # nt is the number of timesteps we want to calculate
+# dt = .025  # dt is the amount of time each timestep covers (delta t)
+# Lt = nt*dt
 
-def A(xx):
-    x = xx[0] / Lx
-    t = xx[1] / Lt
-    return (t * torch.sin(np.pi * x))
-
-def psy_trial(xx, net_out):
-    x = xx[0] / Lx
-    t = xx[1] / Lt
-    f = A(xx) + x * (1 - x) * t * (1 - t) * net_out
-    return f
+# def A(xx):
+#     x = xx[0] / Lx
+#     t = xx[1] / Lt
+#     return (t * torch.sin(np.pi * x))
+#
+# def psy_trial(xx, net_out):
+#     x = xx[0] / Lx
+#     t = xx[1] / Lt
+#     f = A(xx) + x * (1 - x) * t * (1 - t) * net_out
+#     return f
 
 
 if __name__ == '__main__':
+    Lx = 2.0
     nx = 41  # try changing this number from 41 to 81 and Run All ... what happens?
     dx = 2 / (nx - 1)
     nt = 25  # nt is the number of timesteps we want to calculate
     dt = .025  # dt is the amount of time each timestep covers (delta t)
+    Lt = nt*dt
     c = 1  # assume wavespeed of c = 1
     x_space = torch.linspace(0,2,nx-1)
     t_space = np.arange(0,nt*dt,dt)
@@ -99,41 +128,47 @@ if __name__ == '__main__':
 
 
     pde = PDEnet(nx-1,Lx,Lt,nt,c,dt)
-    y = pde.trial(torch.zeros(2))
-
-    lmb = 0.01
-    optimizer = torch.optim.Adam(pde.parameters(), lr=lmb)
-    i = 0
-    loss = 1e6*torch.ones(1)
-    # for i in range(100):
-    while loss.item() > 1e-1:
-        optimizer.zero_grad()
-        from loss import loss_function
-
-        loss = loss_function(x_space, t_space, pde, psy_trial, f,c)
-
-        loss.backward(retain_graph=True)
-
-        optimizer.step()
-
-        print(i, loss.item())
-        i = i+1
-
-
-
-    u_nn = torch.zeros((nt,nx-1))
-
+    u_nn = torch.zeros((nt, nx - 1))
     for i, x in enumerate(x_space):
         for j, t in enumerate(t_space):
-            u_nn[j][i] = pde.trial(torch.Tensor([x, t]))
+            u_nn[j][i] = pde.exact(torch.Tensor([x, t]))
             # surface[j][i] = psy_trial([x, t], net_outt)
 
     from surface import draw_surf
 
     u = pde.initial_condition()
     u, u2D = linear_convection_solve(u, pde.c, pde.dx, pde.dt, pde.Lx, pde.N, pde.Lt, pde.nt)
-    #draw_surf(pde.Lx, pde.N, pde.Lt, nt, u2D) #u_nn.detach().numpy())
+    draw_surf(pde.Lx, pde.Lt,u2D,'T', 'X')  # u_nn.detach().numpy())
     draw_surf(Lx, Lt, u_nn.detach().numpy(), 'T', 'X')
+    y1 = pde.boundary(torch.zeros(2))
+    y = pde.trial(torch.zeros(2))
+
+    lmb = 0.01
+    optimizer = torch.optim.Adam(pde.parameters(), lr=lmb)
+    i = 0
+    loss = 1e6*torch.ones(1)
+    for i in range(100):
+    # while loss.item() > 1e-1:
+        optimizer.zero_grad()
+        from loss import loss_function
+
+        loss = loss_function(x_space, t_space, pde, f,c)
+
+        loss.backward(retain_graph=True)
+
+        optimizer.step()
+
+        print(i, loss.item())
+        sol = pde.getSolution()
+        from surface import draw_surf
+        draw_surf(pde.Lx, pde.Lt, sol.detach().numpy(), 'T', 'X')
+        i = i+1
+
+
+
+    u_nn = torch.zeros((nt,nx-1))
+
+
 
 
 

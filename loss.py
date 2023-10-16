@@ -5,7 +5,7 @@ from torch.autograd.functional import hessian
 
 
 
-def loss_function(x_space, t_space, pde, psy_trial, f,c):
+def loss_function(x_space, t_space, pde, f,c):
 
     loss_sum = 0.0
     for xi in x_space:
