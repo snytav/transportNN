@@ -26,6 +26,7 @@ class PDEnet(nn.Module):
         u = self.initial_condition()
         u, self.u2D = linear_convection_solve(u, self.c, self.dx, self.dt,
                                          self.Lx, self.N, self.Lt, self.nt)
+        self.u2D = torch.from_numpy(self.u2D)
 
     def forward(self,x):
         x = x.reshape(1, 2)
@@ -83,6 +84,27 @@ class PDEnet(nn.Module):
 
         return u_nn
 
+    def numerical_gradients(self):
+        un = self.u2D
+        self.ux = np.zeros_like(un)
+        self.ut = np.zeros_like(un)
+        self.ux[1:-1, 1:-1] = 0.5 / self.dx * (un[1:-1, 2:]  - un[1:-1, 0:-2])
+        self.ut[1:-1, 1:-1] = 0.5 / self.dt * (un[2:, 1: -1] - un[0:-2, 1:-1])
+
+    def FD_loss(self,x_space, t_space,func):
+        un = torch.zeros_like(self.u2D)
+        for i, xi in enumerate(x_space):
+            for k, ti in enumerate(t_space):
+                input_point = torch.Tensor([xi, ti])
+                input_point.requires_grad_()
+                un[k][i] = func(input_point)
+
+        from convection_basic import convection_diff
+        u = self.initial_condition()
+        loss = convection_diff(u,un, self.c, self.dx, self.dt,
+                                         self.Lx, self.N, self.Lt, self.nt)
+        return loss
+
         # HERE: arrange solution from L.Barba as a method and make B.C. from this method
         # first u make from Barba's initial condition, all the params into class variables.
        # u, u2D = linear_convection_solve(u, self.c, self.dx, self.dt, self.Lx, self.nx, self.Lt, self.nt)
@@ -135,11 +157,21 @@ if __name__ == '__main__':
             # surface[j][i] = psy_trial([x, t], net_outt)
 
     from surface import draw_surf
+    from loss import loss_function
 
     u = pde.initial_condition()
     u, u2D = linear_convection_solve(u, pde.c, pde.dx, pde.dt, pde.Lx, pde.N, pde.Lt, pde.nt)
-    draw_surf(pde.Lx, pde.Lt,u2D,'T', 'X')  # u_nn.detach().numpy())
-    draw_surf(Lx, Lt, u_nn.detach().numpy(), 'T', 'X')
+    draw_surf(pde.Lx, pde.Lt,u2D,'T', 'X','FD solution')  # u_nn.detach().numpy())
+    draw_surf(Lx, Lt, u_nn.detach().numpy(), 'T', 'X','FD solution from PDE class')
+    pde.numerical_gradients()
+    fd_exact = pde.FD_loss(x_space, t_space,pde.exact)
+    fd = pde.FD_loss(x_space, t_space,pde.forward)
+    loss,mloss,m_df_dx,m_df_dt = loss_function(x_space, t_space, pde.exact, f, c)
+    draw_surf(Lx, Lt, mloss.detach().numpy(), 'T', 'X','Loss Function pointwise')
+    draw_surf(Lx, Lt, m_df_dx.detach().numpy(), 'T', 'X','df_dx')
+    draw_surf(Lx, Lt, pde.ux, 'T', 'X', 'df_dx numerical')
+    draw_surf(Lx, Lt, m_df_dt.detach().numpy(), 'T', 'X','df_dt')
+    draw_surf(Lx, Lt, pde.ut, 'T', 'X', 'df_dt numerical')
     y1 = pde.boundary(torch.zeros(2))
     y = pde.trial(torch.zeros(2))
 

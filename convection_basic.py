@@ -6,6 +6,7 @@
 import numpy                       #here we load numpy
 from matplotlib import pyplot      #here we load matplotlib
 import time, sys                   #and load some utilities
+import torch
 
 from surface import draw_surf
 
@@ -37,6 +38,27 @@ def linear_convection_solve(u,c,dx,dt,Lx, nx, Lt, nt):
   #  pyplot.show()
     # draw_surf(Lx, Lt, u2D,'T','X')
     return u,u2D
+
+
+def convection_diff(u,u2D,c,dx,dt,Lx, nx, Lt, nt):
+    nx = u.shape[0]
+    # u2D = numpy.zeros((nt,nx))
+    #pyplot.plot(numpy.linspace(0, 2, nx), u);
+
+    u = numpy.ones(nx)  # initialize a temporary array
+    loss = torch.zeros(1)
+    for n in range(nt):  # loop for values of n from 0 to nt, so it will run nt times
+        un = u.copy()  ##copy the existing values of u into un
+        u = u2D[n, :]
+        for i in range(1, nx):  ## you can try commenting this line and...
+            # for i in range(nx): ## ... uncommenting this line and see what happens!
+            u[i] = un[i] - c * dt / dx * (un[i] - un[i - 1])
+        eps = torch.from_numpy(un) - u
+        u = u.detach().numpy()
+        loss += torch.sum(torch.pow(eps,2.0))
+        #print(n,i,loss)
+        qq = 0
+    return loss
 
 
 def convert_1D_to_2D(u,dt,nt,dx):

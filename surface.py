@@ -3,7 +3,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import pyplot, cm
 
-def draw_surf(Lx,Lt,u2D,tit_t,tit_x):
+def draw_surf(Lx,Lt,u2D,tit_t,tit_x,tit):
     nt = u2D.shape[0]
     nx = u2D.shape[1]
     xx = numpy.linspace(0,Lx,nx)
@@ -16,4 +16,4 @@ def draw_surf(Lx,Lt,u2D,tit_t,tit_x):
     plt.colorbar(surf)
     plt.xlabel(tit_x)
     plt.ylabel(tit_t)
-    plt.title('1-D Linear Convection')
+    plt.title(tit)
