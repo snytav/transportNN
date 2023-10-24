@@ -67,14 +67,26 @@ class PDEnet(nn.Module):
         dx = self.dx
         u[int(.5 / dx):int(1 / dx + 1)] = 2  # setting u = 2 between 0.5 and 1 as per our I.C.s
         return u
-
-    def getSolution(self):
+    def get_xt_space_and_matrix(self):
         x_space = torch.linspace(0, self.Lx, self.N - 1)
         t_space = np.arange(0, self.nt * self.dt, self.dt)
         u_nn = torch.zeros((self.nt, self.N))
+        return x_space,t_space,u_nn
+    def getSolution(self):
+        # x_space = torch.linspace(0, self.Lx, self.N - 1)
+        # t_space = np.arange(0, self.nt * self.dt, self.dt)
+        # u_nn = torch.zeros((self.nt, self.N))
+        x_space,t_space,u_nn = self.get_xt_space_and_matrix()
         for i, x in enumerate(x_space):
             for j, t in enumerate(t_space):
-                u_nn[j][i] = pde.trial(torch.Tensor([x, t]))
+                u_nn[j][i] = pde.forward(torch.Tensor([x, t]))
+        return u_nn
+    def distance_to_exact(self):
+        sol = self.getSolution()
+        d = torch.pow(torch.sum(torch.pow(self.u2D-sol,2)),0.5)
+        return d
+
+
     #
     # def boundary(self,xx):
     #     x = xx[0] / Lx
@@ -162,7 +174,8 @@ if __name__ == '__main__':
     u = pde.initial_condition()
     u, u2D = linear_convection_solve(u, pde.c, pde.dx, pde.dt, pde.Lx, pde.N, pde.Lt, pde.nt)
     draw_surf(pde.Lx, pde.Lt,u2D,'T', 'X','FD solution')  # u_nn.detach().numpy())
-    draw_surf(Lx, Lt, u_nn.detach().numpy(), 'T', 'X','FD solution from PDE class')
+    u_nn = pde.getSolution()
+    draw_surf(Lx, Lt, u_nn.detach().numpy(), 'T', 'X','NN solution before training')
     pde.numerical_gradients()
     fd_exact = pde.FD_loss(x_space, t_space,pde.exact)
     fd = pde.FD_loss(x_space, t_space,pde.forward)
@@ -175,29 +188,32 @@ if __name__ == '__main__':
     y1 = pde.boundary(torch.zeros(2))
     y = pde.trial(torch.zeros(2))
 
-    lmb = 0.01
+    lmb = 0.1
     optimizer = torch.optim.Adam(pde.parameters(), lr=lmb)
     i = 0
-    loss = 1e6*torch.ones(1)
-    for i in range(100):
-    # while loss.item() > 1e-1:
+    fd = 1e6*torch.ones(1)
+    # for i in range(100):
+    while fd.item() > 1e-3:
         optimizer.zero_grad()
-        from loss import loss_function
+        #from loss import loss_function
 
-        loss = loss_function(x_space, t_space, pde, f,c)
+        d = pde.distance_to_exact()
+        fd = pde.FD_loss(x_space, t_space, pde.forward)
 
-        loss.backward(retain_graph=True)
+        fd.backward(retain_graph=True)
 
         optimizer.step()
 
-        print(i, loss.item())
-        sol = pde.getSolution()
-        from surface import draw_surf
-        draw_surf(pde.Lx, pde.Lt, sol.detach().numpy(), 'T', 'X')
+        d = pde.distance_to_exact()
+        print(i, fd.item(),d.item())
+
         i = i+1
 
+    sol = pde.getSolution()
+    from surface import draw_surf
 
-
+    draw_surf(pde.Lx, pde.Lt, pde.u2D, 'T', 'X', 'FD solution')
+    draw_surf(pde.Lx, pde.Lt, sol.detach().numpy(), 'T', 'X','NN solution')
     u_nn = torch.zeros((nt,nx-1))
 
 

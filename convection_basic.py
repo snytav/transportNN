@@ -34,9 +34,9 @@ def linear_convection_solve(u,c,dx,dt,Lx, nx, Lt, nt):
         u2D[n,:] = u
         qq = 0
 
-  #  pyplot.plot(numpy.linspace(0, 2, nx), u);
-  #  pyplot.show()
-    # draw_surf(Lx, Lt, u2D,'T','X')
+    pyplot.plot(numpy.linspace(0, 2, nx), u);
+    pyplot.show()
+    draw_surf(Lx, Lt, u2D,'T','X','1D convection Finite-Difference result')
     return u,u2D
 
 
